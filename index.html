@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blockbau - Browser-Spiel</title>
+<meta name="description" content="Kostenloses Block-Bau-Spiel im Browser: Blöcke abbauen und bauen.">
+<style>
+body{margin:0;background:#222;color:#fff;font-family:sans-serif;text-align:center}
+canvas{background:#87ceeb;display:block;margin:auto;max-width:100%}
+</style>
+</head>
+<body>
+<h1>Blockbau</h1>
+<canvas id="c" width="800" height="480"></canvas>
+<p id="info"></p>
+<script>
+const cv=document.getElementById("c"),g=cv.getContext("2d");
+const T=32,W=150,H=50;
+const col=[null,"#4caf50","#8b5a2b","#808080","#a0522d","#b33a3a"];
+const names=["","Gras","Erde","Stein","Holz","Ziegel"];
+const map=[];
+for(let x=0;x<W;x++){
+  map[x]=[];
+  const h=22+Math.round(3*Math.sin(x/7)+2*Math.sin(x/3.1));
+  for(let y=0;y<H;y++){
+    map[x][y]=y<h?0:y==h?1:y<h+4?2:3;
+  }
+}
+const p={x:W*T/2,y:0,vx:0,vy:0,w:22,h:44,ground:false};
+let sel=1,keys={},mx=0,my=0,camX=0,camY=0;
+function solid(tx,ty){
+  if(tx<0||tx>=W)return true;
+  if(ty<0)return false;
+  if(ty>=H)return true;
+  return map[tx][ty]>0;
+}
+function hit(){
+  for(let x=Math.floor(p.x/T);x<=Math.floor((p.x+p.w-1)/T);x++)
+    for(let y=Math.floor(p.y/T);y<=Math.floor((p.y+p.h-1)/T);y++)
+      if(solid(x,y))return true;
+  return false;
+}
+function update(){
+  const l=keys.a||keys.arrowleft,r=keys.d||keys.arrowright;
+  const j=keys.w||keys[" "]||keys.arrowup;
+  p.vx=((r?1:0)-(l?1:0))*3.5;
+  p.vy=Math.min(p.vy+0.5,12);
+  if(j&&p.ground)p.vy=-10;
+  p.x+=p.vx; if(hit())p.x-=p.vx;
+  p.ground=false;
+  p.y+=p.vy;
+  if(hit()){
+    p.y-=p.vy;
+    if(p.vy>0)p.ground=true;
+    p.vy=0;
+  }
+}
+function draw(){
+  camX=p.x+p.w/2-cv.width/2;
+  camY=p.y+p.h/2-cv.height/2;
+  g.clearRect(0,0,cv.width,cv.height);
+  const x0=Math.floor(camX/T),y0=Math.floor(camY/T);
+  for(let x=x0;x<=x0+26;x++)for(let y=y0;y<=y0+16;y++){
+    if(x<0||x>=W||y<0||y>=H)continue;
+    const b=map[x][y];
+    if(b){
+      g.fillStyle=col[b];
+      g.fillRect(x*T-camX,y*T-camY,T,T);
+      g.strokeStyle="rgba(0,0,0,.25)";
+      g.strokeRect(x*T-camX,y*T-camY,T,T);
+    }
+  }
+  g.fillStyle="#2a6fdb";
+  g.fillRect(p.x-camX,p.y-camY,p.w,p.h);
+  g.fillStyle="#f5cba7";
+  g.fillRect(p.x-camX+2,p.y-camY,18,14);
+  const tx=Math.floor((mx+camX)/T),ty=Math.floor((my+camY)/T);
+  g.strokeStyle="#fff";
+  g.strokeRect(tx*T-camX,ty*T-camY,T,T);
+  document.getElementById("info").textContent="Gewählt: "+sel+" = "+names[sel]+"  (Tasten 1-5)";
+}
+function loop(){update();draw();requestAnimationFrame(loop);}
+function act(e){
+  const rect=cv.getBoundingClientRect();
+  mx=(e.clientX-rect.left)*cv.width/rect.width;
+  my=(e.clientY-rect.top)*cv.height/rect.height;
+}
+cv.addEventListener("mousemove",act);
+cv.addEventListener("contextmenu",e=>e.preventDefault());
+cv.addEventListener("mousedown",e=>{
+  act(e);
+  const tx=Math.floor((mx+camX)/T),ty=Math.floor((my+camY)/T);
+  if(tx<0||tx>=W||ty<0||ty>=H)return;
+  const dx=tx*T+T/2-(p.x+p.w/2),dy=ty*T+T/2-(p.y+p.h/2);
+  if(Math.hypot(dx,dy)>T*6)return;
+  if(e.button==0){
+    map[tx][ty]=0;
+  }else if(map[tx][ty]==0){
+    map[tx][ty]=sel;
+    if(hit())map[tx][ty]=0;
+  }
+});
+addEventListener("keydown",e=>{
+  const k=e.key.toLowerCase();
+  keys[k]=true;
+  if(k>="1"&&k<="5")sel=+k;
+  if([" ","arrowup","arrowdown"].includes(k))e.preventDefault();
+});
+addEventListener("keyup",e=>{keys[e.key.toLowerCase()]=false;});
+loop();
+</script>
+</body>
+</html>
